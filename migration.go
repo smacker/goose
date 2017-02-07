@@ -101,19 +101,27 @@ func NumericComponent(name string) (int64, error) {
 
 func CreateMigration(name, migrationType, dir string, t time.Time) (path string, err error) {
 
-	if migrationType != "go" && migrationType != "sql" {
-		return "", errors.New("migration type must be 'go' or 'sql'")
+	if migrationType != "go" && migrationType != "sql" && migrationType != "gorm" {
+		return "", errors.New("migration type must be 'go' or 'sql' or 'gorm'")
+	}
+
+	tmpl := sqlMigrationTemplate
+	switch migrationType {
+	case "go":
+		tmpl = goSqlMigrationTemplate
+	case "gorm":
+		tmpl = gormMigrationTemplate
+	}
+
+	extension := migrationType
+	if migrationType == "gorm" {
+		extension = "go"
 	}
 
 	timestamp := t.Format("20060102150405")
-	filename := fmt.Sprintf("%v_%v.%v", timestamp, name, migrationType)
+	filename := fmt.Sprintf("%v_%v.%v", timestamp, name, extension)
 
 	fpath := filepath.Join(dir, filename)
-	tmpl := sqlMigrationTemplate
-	if migrationType == "go" {
-		tmpl = goSqlMigrationTemplate
-	}
-
 	path, err = writeTemplateToFile(fpath, tmpl, timestamp)
 
 	return
@@ -143,12 +151,12 @@ var sqlMigrationTemplate = template.Must(template.New("goose.sql-migration").Par
 
 `))
 var goSqlMigrationTemplate = template.Must(template.New("goose.go-migration").Parse(`
-package migration
+package migrations
 
 import (
     "database/sql"
 
-    "github.com/pressly/goose"
+    "github.com/smacker/goose"
 )
 
 func init() {
@@ -160,6 +168,27 @@ func Up_{{.}}(tx *sql.Tx) error {
 }
 
 func Down_{{.}}(tx *sql.Tx) error {
+    return nil
+}
+`))
+
+var gormMigrationTemplate = template.Must(template.New("goose.gorm-migration").Parse(`
+package migrations
+
+import (
+    "github.com/jinzhu/gorm"
+    "github.com/smacker/goose"
+)
+
+func init() {
+    goose.AddMigration(wrap(Up_{{.}}), wrap(Down_{{.}}))
+}
+
+func Up_{{.}}(tx *gorm.DB) error {
+    return nil
+}
+
+func Down_{{.}}(tx *gorm.DB) error {
     return nil
 }
 `))

@@ -14,6 +14,10 @@ var (
 
 func Run(command string, db *sql.DB, dir string, args ...string) error {
 	switch command {
+	case "apply":
+		if err := Apply(db, dir); err != nil {
+			return err
+		}
 	case "up":
 		if err := Up(db, dir); err != nil {
 			return err
@@ -24,7 +28,7 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 		}
 	case "create":
 		if len(args) == 0 {
-			return fmt.Errorf("create must be of form: goose [OPTIONS] DRIVER DBSTRING create NAME [go|sql]")
+			return fmt.Errorf("create must be of form: goose [OPTIONS] DRIVER DBSTRING create NAME [go|sql|gorm]")
 		}
 
 		migrationType := "go"
@@ -40,6 +44,17 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 		}
 	case "redo":
 		if err := Redo(db, dir); err != nil {
+			return err
+		}
+	case "reset":
+		if err := Reset(db, dir); err != nil {
+			return err
+		}
+	case "refresh":
+		if err := Reset(db, dir); err != nil {
+			return err
+		}
+		if err := Apply(db, dir); err != nil {
 			return err
 		}
 	case "status":

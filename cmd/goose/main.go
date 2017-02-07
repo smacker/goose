@@ -7,17 +7,15 @@ import (
 	"log"
 	"os"
 
-	"github.com/pressly/goose"
+	"github.com/smacker/goose"
 
-	_ "github.com/go-sql-driver/mysql"
-	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
-	_ "github.com/ziutek/mymysql/godrv"
 )
 
 var (
-	flags = flag.NewFlagSet("goose", flag.ExitOnError)
-	dir   = flags.String("dir", ".", "directory with migration files")
+	flags  = flag.NewFlagSet("goose", flag.ExitOnError)
+	dir    = flags.String("dir", ".", "directory with migration files")
+	driver = "sqlite3"
 )
 
 func main() {
@@ -33,7 +31,7 @@ func main() {
 		return
 	}
 
-	if len(args) < 3 {
+	if len(args) < 2 {
 		flags.Usage()
 		return
 	}
@@ -43,15 +41,10 @@ func main() {
 		return
 	}
 
-	driver, dbstring, command := args[0], args[1], args[2]
+	dbstring, command := args[0], args[1]
 
-	switch driver {
-	case "postgres", "mysql", "sqlite3":
-		if err := goose.SetDialect(driver); err != nil {
-			log.Fatal(err)
-		}
-	default:
-		log.Fatalf("%q driver not supported\n", driver)
+	if err := goose.SetDialect(driver); err != nil {
+		log.Fatal(err)
 	}
 
 	switch dbstring {
@@ -66,7 +59,7 @@ func main() {
 	}
 
 	arguments := []string{}
-	if len(args) > 3 {
+	if len(args) > 2 {
 		arguments = append(arguments, args[3:]...)
 	}
 
@@ -85,21 +78,22 @@ var (
 	usagePrefix = `Usage: goose [OPTIONS] DRIVER DBSTRING COMMAND
 
 Examples:
-    goose postgres "user=postgres dbname=postgres sslmode=disable" up
-    goose mysql "user:password@/dbname" down
-    goose sqlite3 ./foo.db status
-    goose postgres "user=postgres dbname=postgres sslmode=disable" create init sql
+    goose ./foo.db status
+    goose create init sql
 
 Options:
 `
 
 	usageCommands = `
 Commands:
-    up         Migrate the DB to the most recent version available
-    down       Roll back the version by 1
-    redo       Re-run the latest migration
-    status     Dump the migration status for the current DB
-    dbversion  Print the current version of the database
-    create     Creates a blank migration template
+	apply      Apply all pending migrations
+	reset      Rollback all database migrations
+	refresh    Reset and re-run all migrations
+	up         Migrate the DB to the most recent version available
+	down       Roll back the version by 1
+	redo       Re-run the latest migration
+	status     Dump the migration status for the current DB
+	dbversion  Print the current version of the database
+	create     Creates a blank migration template
 `
 )
