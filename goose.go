@@ -3,6 +3,7 @@ package goose
 import (
 	"database/sql"
 	"fmt"
+	"strconv"
 	"sync"
 )
 
@@ -12,6 +13,7 @@ var (
 	maxVersion         = int64((1 << 63) - 1)
 )
 
+// Run runs a goose command.
 func Run(command string, db *sql.DB, dir string, args ...string) error {
 	switch command {
 	case "apply":
@@ -24,6 +26,18 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 		}
 	case "up-by-one":
 		if err := UpByOne(db, dir); err != nil {
+			return err
+		}
+	case "up-to":
+		if len(args) == 0 {
+			return fmt.Errorf("up-to must be of form: goose [OPTIONS] DRIVER DBSTRING up-to VERSION")
+		}
+
+		version, err := strconv.ParseInt(args[0], 10, 64)
+		if err != nil {
+			return fmt.Errorf("version must be a number (got '%s')", args[0])
+		}
+		if err := UpTo(db, dir, version); err != nil {
 			return err
 		}
 	case "create":
@@ -40,6 +54,18 @@ func Run(command string, db *sql.DB, dir string, args ...string) error {
 		}
 	case "down":
 		if err := Down(db, dir); err != nil {
+			return err
+		}
+	case "down-to":
+		if len(args) == 0 {
+			return fmt.Errorf("down-to must be of form: goose [OPTIONS] DRIVER DBSTRING down-to VERSION")
+		}
+
+		version, err := strconv.ParseInt(args[0], 10, 64)
+		if err != nil {
+			return fmt.Errorf("version must be a number (got '%s')", args[0])
+		}
+		if err := DownTo(db, dir, version); err != nil {
 			return err
 		}
 	case "redo":

@@ -53,6 +53,10 @@ func main() {
 	default:
 	}
 
+	if driver == "redshift" {
+		driver = "postgres"
+	}
+
 	db, err := sql.Open(driver, dbstring)
 	if err != nil {
 		log.Fatalf("-dbstring=%q: %v\n", dbstring, err)
@@ -77,6 +81,12 @@ func usage() {
 var (
 	usagePrefix = `Usage: goose [OPTIONS] DRIVER DBSTRING COMMAND
 
+Drivers:
+    postgres
+    mysql
+    sqlite3
+    redshift
+
 Examples:
     goose ./foo.db status
     goose create init sql
@@ -86,14 +96,16 @@ Options:
 
 	usageCommands = `
 Commands:
-	apply      Apply all pending migrations
-	reset      Rollback all database migrations
-	refresh    Reset and re-run all migrations
-	up         Migrate the DB to the most recent version available
-	down       Roll back the version by 1
-	redo       Re-run the latest migration
-	status     Dump the migration status for the current DB
-	dbversion  Print the current version of the database
-	create     Creates a blank migration template
+	apply             Apply all pending migrations
+	reset             Rollback all database migrations
+	refresh           Reset and re-run all migrations
+	up                Migrate the DB to the most recent version available
+	up-to VERSION     Migrate the DB to a specific VERSION
+	down              Roll back the version by 1
+	down-to VERSION   Roll back to a specific VERSION
+	redo              Re-run the latest migration
+	status            Dump the migration status for the current DB
+	version           Print the current version of the database
+	create            Creates a blank migration template
 `
 )

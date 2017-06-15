@@ -4,13 +4,14 @@ import (
 	"database/sql"
 )
 
+// Redo rolls back the most recently applied migration, then runs it again.
 func Redo(db *sql.DB, dir string) error {
 	currentVersion, err := GetDBVersion(db)
 	if err != nil {
 		return err
 	}
 
-	migrations, err := collectMigrations(dir, minVersion, maxVersion)
+	migrations, err := CollectMigrations(dir, minVersion, maxVersion)
 	if err != nil {
 		return err
 	}
@@ -20,12 +21,7 @@ func Redo(db *sql.DB, dir string) error {
 		return err
 	}
 
-	previous, err := migrations.Next(currentVersion)
-	if err != nil {
-		return err
-	}
-
-	if err := previous.Up(db); err != nil {
+	if err := current.Down(db); err != nil {
 		return err
 	}
 

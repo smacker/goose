@@ -6,7 +6,7 @@ import (
 )
 
 func Reset(db *sql.DB, dir string) error {
-	migrations, err := collectMigrations(dir, minVersion, maxVersion)
+	migrations, err := CollectMigrations(dir, minVersion, maxVersion)
 	if err != nil {
 		return err
 	}

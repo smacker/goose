@@ -8,9 +8,10 @@ import (
 	"time"
 )
 
+// Status prints the status of all migrations.
 func Status(db *sql.DB, dir string) error {
 	// collect all migrations
-	migrations, err := collectMigrations(dir, minVersion, maxVersion)
+	migrations, err := CollectMigrations(dir, minVersion, maxVersion)
 	if err != nil {
 		return err
 	}
