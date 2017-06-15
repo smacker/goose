@@ -41,7 +41,7 @@ func endsWithSemicolon(line string) bool {
 // within a statement. For these cases, we provide the explicit annotations
 // 'StatementBegin' and 'StatementEnd' to allow the script to
 // tell us to ignore semicolons.
-func splitSQLStatements(r io.Reader, direction bool) (stmts []string) {
+func splitSQLStatements(r io.Reader, direction bool) (stmts []string, useTransaction bool) {
 
 	var buf bytes.Buffer
 	scanner := bufio.NewScanner(r)
@@ -54,6 +54,7 @@ func splitSQLStatements(r io.Reader, direction bool) (stmts []string) {
 	statementEnded := false
 	ignoreSemicolons := false
 	directionIsActive := false
+	useTransaction = true
 
 	for scanner.Scan() {
 
@@ -84,6 +85,10 @@ func splitSQLStatements(r io.Reader, direction bool) (stmts []string) {
 					statementEnded = (ignoreSemicolons == true)
 					ignoreSemicolons = false
 				}
+				break
+
+			case "DisableTransaction":
+				useTransaction = false
 				break
 			}
 		}
@@ -136,12 +141,6 @@ func splitSQLStatements(r io.Reader, direction bool) (stmts []string) {
 // All statements following an Up or Down directive are grouped together
 // until another direction directive is found.
 func runSQLMigration(db *sql.DB, scriptFile string, v int64, direction bool) error {
-
-	tx, err := db.Begin()
-	if err != nil {
-		log.Fatal("db.Begin:", err)
-	}
-
 	f, err := os.Open(scriptFile)
 	if err != nil {
 		log.Fatal(err)
@@ -152,16 +151,47 @@ func runSQLMigration(db *sql.DB, scriptFile string, v int64, direction bool) err
 	// Commits the transaction if successfully applied each statement and
 	// records the version into the version table or returns an error and
 	// rolls back the transaction.
-	for _, query := range splitSQLStatements(f, direction) {
+	stmts, useTransaction := splitSQLStatements(f, direction)
+	migrationName := filepath.Base(scriptFile)
+
+	if useTransaction {
+		return runInTx(db, stmts, direction, v, migrationName)
+	}
+
+	for _, query := range stmts {
+		if _, err = db.Exec(query); err != nil {
+			log.Fatalf("FAIL %s (%v), quitting migration.", migrationName, err)
+			return err
+		}
+	}
+
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatal("db.Begin:", err)
+	}
+	if err = FinalizeMigration(tx, direction, v); err != nil {
+		log.Fatalf("error finalizing migration %s, quitting. (%v)", migrationName, err)
+	}
+
+	return nil
+}
+
+func runInTx(db *sql.DB, stmts []string, direction bool, v int64, migrationName string) error {
+	tx, err := db.Begin()
+	if err != nil {
+		log.Fatal("db.Begin:", err)
+	}
+
+	for _, query := range stmts {
 		if _, err = tx.Exec(query); err != nil {
 			tx.Rollback()
-			log.Fatalf("FAIL %s (%v), quitting migration.", filepath.Base(scriptFile), err)
+			log.Fatalf("FAIL %s (%v), quitting migration.", migrationName, err)
 			return err
 		}
 	}
 
 	if err = FinalizeMigration(tx, direction, v); err != nil {
-		log.Fatalf("error finalizing migration %s, quitting. (%v)", filepath.Base(scriptFile), err)
+		log.Fatalf("error finalizing migration %s, quitting. (%v)", migrationName, err)
 	}
 
 	return nil
